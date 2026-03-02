@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlowGPT | Mini Local AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&family=Inter:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --container-bg: rgba(18, 22, 31, 1);
+            --primary: #3b82f6;
+            /* Classic Blue */
+            --accent: #8b5cf6;
+            /* Purple */
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chat-app {
+            width: 100%;
+            max-width: 800px;
+            height: 90vh;
+            background: var(--container-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        header {
+            padding: 20px;
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            margin: 0;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .model-tag {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border: 1px solid var(--glass-border);
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
+
+        #chat-window {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .msg {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 15px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .user {
+            align-self: flex-end;
+            background: var(--primary);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-bottom-left-radius: 4px;
+        }
+
+        footer {
+            padding: 20px;
+            border-top: 1px solid var(--glass-border);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .input-bar {
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            background: #1e293b;
+            border: 1px solid var(--glass-border);
+            color: white;
+            border-radius: 10px;
+            padding: 12px 15px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button:disabled {
+            background: #334155;
+            opacity: 0.5;
+        }
+
+        .indicator {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+            display: none;
+            margin-left: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="chat-app">
+        <header>
+            <h1>GlowGPT</h1>
+            <div class="model-tag">Local Model Server</div>
+        </header>
+
+        <div id="chat-window">
+            <div class="msg ai">I'm ready! Type anything to start our local conversation.</div>
+        </div>
+
+        <div id="loading" class="indicator">Thinking...</div>
+
+        <footer>
+            <form id="chat-form" class="input-bar">
+                <input type="text" id="user-input" placeholder="Aa" autocomplete="off">
+                <button type="submit" id="btn">Send</button>
+            </form>
+        </footer>
+    </div>
+
+    <script>
+        /**
+         * STREAMING EXPLAINED:
+         * 1. We send a standard POST request with the user message.
+         * 2. Instead of waiting for the full response, we use 'response.body.getReader()'.
+         * 3. This allows us to read incoming bytes (chunks) as they arrive from the backend.
+         * 4. Each chunk is decoded into text and immediately displayed in the UI.
+         */
+        const windowDiv = document.getElementById('chat-window');
+        const form = document.getElementById('chat-form');
+        const input = document.getElementById('user-input');
+        const btn = document.getElementById('btn');
+        const loading = document.getElementById('loading');
+
+        function addMsg(text, type) {
+            const div = document.createElement('div');
+            div.className = `msg ${type}`;
+            div.innerText = text;
+            windowDiv.appendChild(div);
+            windowDiv.scrollTop = windowDiv.scrollHeight;
+            return div;
+        }
+
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            const val = input.value.trim();
+            if (!val) return;
+
+            addMsg(val, 'user');
+            input.value = '';
+
+            const aiMsg = addMsg('', 'ai'); // Create empty air message to fill in
+            loading.style.display = 'block';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: val })
+                });
+
+                if (!res.ok) throw new Error('API server down.');
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let fullResponse = '';
+
+                loading.style.display = 'none';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullResponse += chunk;
+                    aiMsg.innerText = fullResponse; // Update the message live
+                    windowDiv.scrollTop = windowDiv.scrollHeight;
+                }
+            } catch (e) {
+                aiMsg.innerText = "Error: Check backend console. Likely Ollama is not running.";
+                aiMsg.style.borderColor = "#991b1b";
+            } finally {
+                loading.style.display = 'none';
+                btn.disabled = false;
+                input.focus();
+            }
+        };
+    </script>
+</body>
+
+</html>
