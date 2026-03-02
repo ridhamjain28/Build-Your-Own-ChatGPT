@@ -88,20 +88,46 @@ Nothing in GlowGPT is hardcoded. Everything is configurable via an **`.env`** fi
 
 ---
 
-## 🛠️ Step-by-Step Installation
+## � How to Get Started (First Time Setup)
 
-1.  **Install dependencies**:
+Follow these exact steps to get GlowGPT running on your machine from scratch.
+
+### 1. Download the Project
+*   **Alternative A (Easy):** Click the green **"<> Code"** button at the top of this GitHub page and select **"Download ZIP"**. Extract the folder to your Desktop.
+*   **Alternative B (Best):** Open your terminal/command prompt and run:
     ```bash
-    pip install -r requirements.txt
+    git clone https://github.com/ridhamjain28/Build-Your-Own-ChatGPT.git
+    cd Build-Your-Own-ChatGPT
     ```
-2.  **Get the model**:
-    ```bash
-    ollama pull qwen:1.8b
-    ```
-3.  **Launch**:
-    ```bash
-    uvicorn app:app --host 0.0.0.0 --port 8000
-    ```
+
+### 2. Install the Necessities (Ollama & Python)
+1.  **Ollama:** Download and install it from [ollama.com](https://ollama.com/). Once installed, make sure the Ollama icon is visible in your system tray (bottom right on Windows).
+2.  **Python:** Download and install Python 3.10+ from [python.org](https://www.python.org/). **Crucial:** During installation, check the box that says **"Add Python to PATH"**.
+
+### 3. Install Python Dependencies
+Open your terminal inside the project folder and run:
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Pull Your Model
+Tell Ollama to download the "brain" you want to use. For 8GB RAM systems, run:
+```bash
+ollama pull qwen:1.8b
+```
+
+### 5. Launch the App
+Start the FastAPI server by running:
+```bash
+uvicorn app:app --host 0.0.0.0 --port 8000
+```
+*Note: Keep this terminal window open!*
+
+### 6. Send Your First Prompt
+1.  Open your web browser and go to: `http://localhost:8000`
+2.  You should see the GlowGPT interface.
+3.  Type *"Hi, are you running locally?"* and hit Send.
+4.  Watch the tokens stream in!
 
 ---
 
