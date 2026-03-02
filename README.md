@@ -1,105 +1,109 @@
-# 🚀 GlowGPT: Lightweight Local ChatGPT Clone
+# 🪐 GlowGPT: Adaptive Local AI Studio
 
-A "Batteries-Included" local AI chatbot designed for learners, developers, and low-RAM hardware. No API keys. No Cloud. Just your machine and an LLM.
-
----
-
-## 🤖 Which Model Can You Run?
-
-Running AI locally depends entirely on your system's **RAM (Memory)**. Here is a guide to selecting the right model for your machine:
-
-| Your RAM Size | Recommended Model Pool | Example Name | Speed Expectation |
-| :--- | :--- | :--- | :--- |
-| **4GB** | 1B Models Only | `qwen:1.8b` / `tinyllama` | Fast (CPU-only) |
-| **8GB** | 1B to 2B Models | `qwen:1.8b` / `gemma:2b` | Smooth |
-| **16GB** | 3.5B to 7B Models | `phi3:mini` / `mistral:7b` | Medium (starts to sweat) |
-| **32GB+** | 13B+ Models | `llama3:8b` / `nous-hermes` | Slow (requires Patience) |
-
-### Key Hardware Concepts
-*   **What is "B"?**: "B" stands for Billions of Parameters. A 7B model has 7 billion "neurons". The more parameters, the more intelligent (and memory-hungry) the model is.
-*   **Why No GPU?**: This app is designed for **CPU-only** inference. If you have a Dedicated GPU (NVIDIA), Ollama will automatically use it for massive speed boosts. If not, your CPU will handle the heavy lifting.
-*   **Quantization (Q4_0)**: Think of this as "compressing" the model. A 7B model normally takes 14GB+ RAM, but a "Q4" (4-bit quantized) version only needs ~4.5GB. We use Q4 models by default.
-*   **Context Window**: The more you talk, the more RAM is used to "remember" the conversation. 
+A fully configurable, hardware-aware ChatGPT clone, designed to run locally on your system using **FastAPI** and **Ollama**. No hidden defaults, no hardcoded models, and 100% transparent performance.
 
 ---
 
-## 🛠️ Step-by-Step Setup (Windows)
+## 🛠️ How It Works Under The Hood
 
-1.  **Install Python**: Download from [python.org](https://www.python.org/). (Check "Add to PATH" during install).
-2.  **Install Ollama**: Download from [ollama.com](https://ollama.com/).
-3.  **Install Backend Dependencies**:
+| Layer | Component | Function |
+| :--- | :--- | :--- |
+| **Frontend** | Browser (Vanilla JS) | Captures user input and streams back AI tokens in real-time using `fetch`. |
+| **Backend** | FastAPI (Python) | Forwards prompts to the model server and manages the streaming bridge. |
+| **Model Server** | Ollama | Loads the model file and performs the heavy-duty inference math. |
+| **The Model** | LLM (e.g., Llama 3) | The trained intelligence (weights) stored in your RAM. |
+| **Hardware** | Your RAM + CPU/GPU | The physical resources doing the work. |
+
+---
+
+## 🧠 Accurate Hardware Model Selection
+
+The performance of local AI is NOT magic—it is limited by your system's physical resources.
+
+### ✨ The RAM Guideline (Crucial!)
+
+| System RAM | Safe Model Choice | Examples | Performance on CPU |
+| :---: | :--- | :--- | :--- |
+| **4GB** | < 1B Parameters | `tinyllama` | Fast (but limited intelligence) |
+| **8GB** | 1B – 2B Parameters | `qwen2:1.5b`, `gemma:2b` | Smooth |
+| **16GB** | 3B – 7B Parameters | `mistral:7b-q4_0`, `phi3:mini` | Medium |
+| **32GB+** | 13B+ Parameters | `llama3:8b`, `mixtral:8x7b` | Slow (unless you have a Dedicated GPU) |
+
+### 📊 Understanding "B" & RAM Math
+*   **What is a "B"?**: 1B = 1 Billion Parameters. Each parameter is a "neuron connection".
+*   **RAM Calculation**: 1B parameters usually take **~1GB of RAM** when quantized (Q4).
+*   **Context usage**: Increasing the **Context Window** (e.g., from 2048 to 8192) forces your machine to reserve extra RAM for the "KV Cache" (the model's short-term memory).
+*   **GPU vs. CPU**:
+    *   **Dedicated GPU (NVIDIA)**: If you have one, Ollama will auto-accelerate. It is 10x–50x faster than a CPU.
+    *   **Integrated Graphics**: Intel/AMD integrated chips are NOT real LLM accelerators. They still use your system RAM and will be slower.
+
+> [!TIP]
+> **Check your RAM on Windows:** Right-click **Taskbar** → **Task Manager** → **Performance** tab → **Memory**.
+
+---
+
+## ⚙️ Configuration — Make It Yours
+
+Nothing in GlowGPT is hardcoded. Everything is configurable via an **`.env`** file.
+
+1.  Create a file named `.env` in the project root (or copy `.env.example`).
+2.  Set your desired variables:
+
+| Variable | Default Value | Description |
+| :--- | :--- | :--- |
+| `MODEL_NAME` | `qwen:1.8b` | The model Ollama will load. Change to `gemma:2b`, `mistral:7b`, etc. |
+| `APP_PORT` | `8000` | The port the FastAPI server listens on. |
+| `APP_HOST` | `0.0.0.0` | Binding. `0.0.0.0` allows external access; `127.0.0.1` restricts to local only. |
+| `CONTEXT_WINDOW`| `4096` | How many tokens the AI "remembers". **Larger = More RAM usage**. |
+| `OLLAMA_HOST` | `http://localhost:11434` | The internal address of your Ollama server. |
+
+---
+
+## 📈 Performance Transparency
+
+*   **First-Load Delay**: When you send the first message, Ollama must move 2GB–5GB from your SSD into your RAM. This causes a **10–30 second delay**.
+*   **CPU at 100%**: It is **Normal** for your CPU to hit 100% during generation if you don't have a high-end GPU.
+*   **System Freezing**: If your RAM is nearly full, your system may swap memory to your SSD. This causes the mouse to stutter and windows to freeze. If this happens, **use a smaller model**.
+*   **Unlimited Memory?**: Impossible. The AI has a **Finite Context Window**. As the conversation exceeds that window (e.g., 4096 tokens), the AI must forget the oldest parts to make room for new ones. True memory requires a separate database (RAG).
+
+---
+
+## ⚠️ Safety & Security Disclaimer
+
+> [!CAUTION]
+> **Local by Design:** This project is intended for local use.
+> **Public exposure:** If you use a tool like **ngrok**, your local model, RAM, and terminal are exposed to the internet. Anyone with the URL can consume your machine resources. 
+
+---
+
+## 🛠️ Step-by-Step Installation
+
+1.  **Dependencies**:
     ```bash
     pip install -r requirements.txt
     ```
-4.  **Pull Your Chosen Model**:
+2.  **Model Pull**:
     ```bash
-    # Open a terminal and run:
-    ollama pull qwen:1.8b
+    ollama pull [your_model_name]
     ```
-5.  **Start the Services**:
-    *   **Ollama**: Ensure the Ollama app is running in your taskbar.
-    *   **FastAPI**: Run this command in your project folder:
-        ```bash
-        uvicorn app:app --host 0.0.0.0 --port 8000
-        ```
-6.  **Open Browser**: Go to `http://localhost:8000/`
+3.  **Run**:
+    ```bash
+    uvicorn app:app --host 0.0.0.0 --port 8000
+    ```
 
 ---
 
-## ⚙️ How to Change the Model
+## ❌ Troubleshooting (Common Issues)
 
-To switch from the default `qwen:1.8b` to something else (like `gemma:2b`):
-
-1.  Open `app.py`.
-2.  Change the top line: `MODEL_NAME = "gemma:2b"`
-3.  **Crucial**: You MUST pull the new model first:
-    ```bash
-    ollama pull gemma:2b
-    ```
-4.  Restart the FastAPI server.
-
----
-
-## ⚠️ Troubleshooting (Common Errors)
-
-| Error Message / Issue | Reason | Exact Fix Command |
+| Problem Code | Reality / Why It Happens | Solution Command / Fix |
 | :--- | :--- | :--- |
-| **404 Model Not Found** | You haven't downloaded the model file. | `ollama pull model_name` |
-| **500 / Connection Refused** | Ollama is not actually running. | Open Ollama app or run `ollama serve` |
-| **"Memory allocation failed"** | Model is too big for your RAM. | Change `app.py` to a smaller model (1.8b) |
-| **Extremely Slow Responses** | You are on a low-spec CPU. | Close Chrome/Background apps; use a 1B model. |
-| **Browser doesn't load at all** | Host binding issue. | Verify you used `--host 0.0.0.0` |
-| **ngrok 520 / 524 Cloudflare** | Backend is slow/offline. | Restart `uvicorn` and check local console for errors. |
+| **Model 404 (Not Found)** | You didn't download the specific model variant. | `ollama pull [model_name]` |
+| **Connection Refused** | Ollama API or service is not running. | Open Ollama app or run `ollama serve` |
+| **API 405 (Not Allowed)** | Likely using a wrong API endpoint in `.env`. | Ensure `OLLAMA_HOST` matches `http://localhost:11434` |
+| **Memory Allocation Failed**| Your RAM is too small for the selected model. | Switch `app.py` to a smaller model (1.8b or 1b). |
+| **TLS Handshake Timeout**| Network connection failed during model download. | Toggle VPN / check network; try `ollama pull` again. |
+| **ngrok 520 / 524** | The backend is too slow or generating took >60s. | Use a smaller model; close background Chrome tabs. |
+| **Extreme Slowness** | High "Swap" usage. System using SSD as fake RAM. | Close all apps; drop `CONTEXT_WINDOW` to `2048`. |
 
 ---
-
-## 🧠 Beginner Concepts Simply Explained
-
-*   **LLM (Large Language Model)**: A complex math equation that predicts the "next word" in a sequence based on billions of examples.
-*   **Ollama**: A tool that makes "running" those giant math equations as simple as opening an app.
-*   **Localhost**: Your own computer's internal address. `localhost:8000` means "Talk to the app on my own machine at gate 8000."
-*   **Streaming**: Instead of waiting for the full paragraph, we show you each word as the AI "thinks" it.
-*   **Unlimited Memory?**: Impossible. Every word the AI remembers takes up a tiny bit of RAM. Eventually, your system runs out.
-
----
-
-## ⚡ Performance Expectations
-
-*   **The "First Load" Lag**: The first time you send a message, Ollama must move 1GB+ of data from your SSD to your RAM. This takes 10–20 seconds.
-*   **CPU Spikes**: Your CPU will hit 100% while the AI is generating. This is normal behavior for local AI.
-*   **8GB Freezes**: If you have 8GB RAM, your mouse might stutter briefly while the model loads. It will stop once it starts typing.
-
----
-
-## 💾 Optional: Adding Long-Term Memory (Later)
-
-Want the AI to remember things from 3 days ago? Here is how you would build it (Architecture):
-
-1.  **Database**: Store every message in a local `SQLite` file.
-2.  **Embeddings**: Convert text into numbers (Vectors) using Ollama's `/embeddings` endpoint.
-3.  **Vector Search**: When a user asks a question, search the DB for the most "mathematically similar" past messages.
-4.  **Prompt Injection**: Throw those past memories into the "System Prompt" before the AI answers.
-
----
-
-*This repo is designed for educational MVPs. No data leaves your machine.*
+*Built for educational transparency. No data leaves your machine unless you explicitly tunnel it.*

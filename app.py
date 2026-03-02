@@ -1,23 +1,30 @@
+import os
+import json
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-import httpx
-import json
-import asyncio
+from dotenv import load_dotenv
+
+# Load configurations from .env file if it exists
+load_dotenv()
 
 # ==========================================
-# CONFIGURATION & HARDWARE LIMITS
+# ⚙️ CONFIGURATION (Environment Driven)
 # ==========================================
-# 1B - 2B models: Great for 4GB - 8GB RAM (Fast)
-# 7B models: Requires 16GB RAM (Medium speed on CPU)
-# 13B+ models: Requires 32GB+ RAM (Slow on CPU)
-MODEL_NAME = "qwen:1.8b" 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+# No hidden defaults. These can be overridden in your .env file.
+MODEL_NAME = os.getenv("MODEL_NAME", "qwen:1.8b")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
+APP_PORT = int(os.getenv("APP_PORT", 8000))
 
-app = FastAPI()
+# Standard Ollama Generation Endpoint
+OLLAMA_GENERATE_URL = f"{OLLAMA_HOST}/api/generate"
 
-# Enable CORS for local development and tunneling (like ngrok)
+app = FastAPI(title="GlowGPT Local Studio")
+
+# Enable CORS for internal networking and external tunnels (ngrok)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -32,32 +39,36 @@ async def chat(request: Request):
         message = data.get("message")
         
         if not message:
-            raise HTTPException(status_code=400, detail="Missing 'message' in request body. Please send some text!")
+            raise HTTPException(status_code=400, detail="Payload missing 'message' field.")
 
         async def generate_stream():
             payload = {
                 "model": MODEL_NAME,
                 "prompt": message,
-                "stream": True
+                "stream": True,
+                # Options can be expanded here for context_length etc.
+                "options": {
+                    "num_ctx": int(os.getenv("CONTEXT_WINDOW", 4096))
+                }
             }
             
-            # timeout=None is critical for local LLMs as they can take time to think
+            # Using a large timeout for local model loading/inference
             async with httpx.AsyncClient(timeout=None) as client:
                 try:
-                    async with client.stream("POST", OLLAMA_URL, json=payload) as response:
+                    async with client.stream("POST", OLLAMA_GENERATE_URL, json=payload) as response:
                         if response.status_code == 404:
-                            yield f"Error: Model '{MODEL_NAME}' not found. Run 'ollama pull {MODEL_NAME}' in your terminal."
+                            yield f"⚠️ ERROR: Model '{MODEL_NAME}' not found. Please run 'ollama pull {MODEL_NAME}' in your terminal."
                             return
                         
                         if response.status_code != 200:
-                            yield f"Error: Ollama returned status {response.status_code}. Check your Ollama logs."
+                            error_detail = await response.aread()
+                            yield f"⚠️ ERROR: Ollama returned code {response.status_code}. Detail: {error_detail.decode()}"
                             return
 
                         async for line in response.aiter_lines():
                             if line:
                                 try:
                                     chunk = json.loads(line)
-                                    # We yield the text content immediately to the browser
                                     if "response" in chunk:
                                         yield chunk["response"]
                                     if chunk.get("done"):
@@ -65,21 +76,23 @@ async def chat(request: Request):
                                 except json.JSONDecodeError:
                                     continue
                 except httpx.ConnectError:
-                    yield "Error: Cannot connect to Ollama. Ensure 'ollama serve' is running in the background."
+                    yield "⚠️ ERROR: Connection Refused. Is Ollama running? Try 'ollama serve'."
+                except Exception as e:
+                    yield f"⚠️ ERROR: {str(e)}"
 
         return StreamingResponse(generate_stream(), media_type="text/plain")
 
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format.")
     except Exception as e:
-        # Generic error fallback for better debugging
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Server Error: {str(e)}")
 
-# Serve the frontend (index.html) from the 'static' folder
+# Mount the static frontend
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    # 0.0.0.0 allows external devices on your network (or ngrok) to connect
-    print(f"Starting server... Model: {MODEL_NAME}")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print(f"--- GlowGPT Local Studio ---")
+    print(f"Target Model: {MODEL_NAME}")
+    print(f"Host: {APP_HOST} | Port: {APP_PORT}")
+    uvicorn.run(app, host=APP_HOST, port=APP_PORT)
